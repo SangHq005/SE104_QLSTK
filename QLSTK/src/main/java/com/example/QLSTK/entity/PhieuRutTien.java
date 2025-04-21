@@ -4,19 +4,19 @@ import jakarta.persistence.*;
 import lombok.Data;
 import java.util.Date;
 
+@Data
 @Entity
 @Table(name = "PHIEURUTTIEN")
-@Data
 public class PhieuRutTien {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int maPRT;
+    private Integer maPRT;
 
     @ManyToOne
-    @JoinColumn(name = "maMSTK")
+    @JoinColumn(name = "MaMSTK", nullable = false)
     private MoSoTietKiem moSoTietKiem;
 
-    private float soTienRut;
+    private Float soTienRut;
 
     @Temporal(TemporalType.DATE)
     private Date ngayRut;

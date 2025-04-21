@@ -3,14 +3,15 @@ package com.example.QLSTK.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.util.Date;
+import java.util.List;
 
+@Data
 @Entity
 @Table(name = "NGUOIDUNG")
-@Data
 public class NguoiDung {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int maND;
+    private Integer maND;
 
     private String tenND;
     private String cccd;
@@ -20,5 +21,14 @@ public class NguoiDung {
     private Date ngaySinh;
     private String email;
     private String matKhau;
-    private int vaiTro; // 0-admin, 1-user
+    private Integer vaiTro; // 0: admin, 1: user
+
+    @OneToMany(mappedBy = "nguoiDung", cascade = CascadeType.ALL)
+    private List<DangNhap> dangNhapList;
+
+    @OneToMany(mappedBy = "nguoiDung", cascade = CascadeType.ALL)
+    private List<ThayDoi> thayDoiList;
+
+    @OneToMany(mappedBy = "nguoiDung", cascade = CascadeType.ALL)
+    private List<MoSoTietKiem> moSoTietKiemList;
 }

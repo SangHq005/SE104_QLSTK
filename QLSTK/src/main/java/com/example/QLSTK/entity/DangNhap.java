@@ -3,16 +3,16 @@ package com.example.QLSTK.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 
+@Data
 @Entity
 @Table(name = "DANGNHAP")
-@Data
 public class DangNhap {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int maDN;
+    private Integer maDN;
 
     @ManyToOne
-    @JoinColumn(name = "maND")
+    @JoinColumn(name = "MaND", nullable = false)
     private NguoiDung nguoiDung;
 
     private String matKhau;

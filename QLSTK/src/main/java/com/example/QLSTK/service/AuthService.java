@@ -1,45 +1,88 @@
 package com.example.QLSTK.service;
 
-import com.example.QLSTK.dto.LoginRequest;
-import com.example.QLSTK.dto.LoginResponse;
-import com.example.QLSTK.dto.NguoiDungDTO;
+import com.example.QLSTK.entity.DangNhap;
 import com.example.QLSTK.entity.NguoiDung;
+import com.example.QLSTK.dto.LoginRequest;
+import com.example.QLSTK.dto.RegisterRequest;
+import com.example.QLSTK.dto.UserResponse;
+import com.example.QLSTK.repository.DangNhapRepository;
 import com.example.QLSTK.repository.NguoiDungRepository;
+
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
 
 @Service
 public class AuthService {
-
     @Autowired
     private NguoiDungRepository nguoiDungRepository;
 
     @Autowired
-    private PasswordEncoder passwordEncoder;
+    private DangNhapRepository dangNhapRepository;
 
-    public void register(NguoiDungDTO dto) {
-        NguoiDung nguoiDung = new NguoiDung();
-        nguoiDung.setTenND(dto.getTenND());
-        nguoiDung.setCccd(dto.getCccd());
-        nguoiDung.setDiaChi(dto.getDiaChi());
-        nguoiDung.setSdt(dto.getSdt());
-        nguoiDung.setNgaySinh(dto.getNgaySinh());
-        nguoiDung.setEmail(dto.getEmail());
-        nguoiDung.setMatKhau(passwordEncoder.encode(dto.getMatKhau()));
-        nguoiDung.setVaiTro(dto.getVaiTro());
-        nguoiDungRepository.save(nguoiDung);
+    @Autowired
+    private UserService userService;
+
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
+    @Transactional
+    public UserResponse signIn(LoginRequest request) throws Exception {
+        Optional<NguoiDung> nguoiDungOpt = nguoiDungRepository.findByEmail(request.getEmail());
+        if (!nguoiDungOpt.isPresent()) {
+            throw new Exception("Email không tồn tại");
+        }
+
+        NguoiDung nguoiDung = nguoiDungOpt.get();
+        if (!passwordEncoder.matches(request.getPassword(), nguoiDung.getMatKhau())) {
+            throw new Exception("Mật khẩu không đúng");
+        }
+
+        // Log login attempt
+        DangNhap dangNhap = new DangNhap();
+        dangNhap.setNguoiDung(nguoiDung);
+        dangNhap.setMatKhau(nguoiDung.getMatKhau());
+        dangNhapRepository.save(dangNhap);
+
+        return userService.mapToUserResponse(nguoiDung);
     }
 
-    public LoginResponse login(LoginRequest request) {
-        NguoiDung nguoiDung = nguoiDungRepository.findByEmail(request.getEmail());
-        if (nguoiDung != null && passwordEncoder.matches(request.getMatKhau(), nguoiDung.getMatKhau())) {
-            LoginResponse response = new LoginResponse();
-            response.setEmail(nguoiDung.getEmail());
-            response.setVaiTro(nguoiDung.getVaiTro());
-            response.setToken("dummy-token"); // Thay bằng JWT nếu cần
-            return response;
+    @Transactional
+    public UserResponse signUp(RegisterRequest request) throws Exception {
+        // Validate passwords match
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
+            throw new Exception("Mật khẩu xác nhận không khớp");
         }
-        throw new RuntimeException("Invalid credentials");
+
+        // Check if email or phone number exists
+        if (nguoiDungRepository.existsByEmail(request.getEmail())) {
+            throw new Exception("Email đã được sử dụng");
+        }
+        if (nguoiDungRepository.existsBySdt(request.getPhoneNumber())) {
+            throw new Exception("Số điện thoại đã được sử dụng");
+        }
+
+        // Create new user
+        NguoiDung nguoiDung = new NguoiDung();
+        nguoiDung.setEmail(request.getEmail());
+        nguoiDung.setSdt(request.getPhoneNumber());
+        nguoiDung.setMatKhau(passwordEncoder.encode(request.getPassword()));
+        nguoiDung.setVaiTro(1); // Default to user role
+        nguoiDung.setTenND(""); // Placeholder, can be updated later
+        nguoiDung.setCccd("");
+        nguoiDung.setDiaChi("");
+        nguoiDung.setNgaySinh(null);
+
+        nguoiDung = nguoiDungRepository.save(nguoiDung);
+
+        // Log signup as a login attempt
+        DangNhap dangNhap = new DangNhap();
+        dangNhap.setNguoiDung(nguoiDung);
+        dangNhap.setMatKhau(nguoiDung.getMatKhau());
+        dangNhapRepository.save(dangNhap);
+
+        return userService.mapToUserResponse(nguoiDung);
     }
 }
