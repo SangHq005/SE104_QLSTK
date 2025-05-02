@@ -2,6 +2,7 @@ package com.example.QLSTK.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
+
 import java.util.Date;
 import java.util.List;
 
@@ -23,6 +24,8 @@ public class MoSoTietKiem {
 
     @Temporal(TemporalType.DATE)
     private Date ngayMoSTK;
+
+    private Boolean daDong; // True: sổ đã đóng, False: sổ đang mở
 
     @OneToMany(mappedBy = "moSoTietKiem", cascade = CascadeType.ALL)
     private List<PhieuGuiTien> phieuGuiTienList;
