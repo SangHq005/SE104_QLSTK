@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -19,6 +20,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/admin/users")
 public class UserController {
+
     @Autowired
     private UserService userService;
 
@@ -41,14 +43,41 @@ public class UserController {
         }
     }
 
+    @Operation(summary = "Delete user (Admin only)")
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/{maND}")
+    public ResponseEntity<?> deleteUser(@PathVariable Integer maND) {
+        try {
+            userService.deleteUser(maND);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "Get admin profile (Admin only)")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/profile")
+    public ResponseEntity<?> getAdminProfile(Authentication authentication) {
+        try {
+            String email = authentication.getName();
+            UserResponse response = userService.getUserProfile(email);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
     @Operation(summary = "Get statistics (Admin only)")
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/statistics")
     public ResponseEntity<Map<String, Object>> getStatistics() {
         Map<String, Object> stats = new HashMap<>();
         stats.put("totalRevenue", userService.getTotalRevenue());
-        stats.put("dailyVisits", userService.getDailyVisits());
+        stats.put("dailyRevenue", userService.getDailyRevenue());
         stats.put("monthlyRevenue", userService.getMonthlyRevenue());
+        stats.put("dailyVisits", userService.getDailyVisits());
+        stats.put("allTransactions", userService.getAllTransactions());
         return ResponseEntity.ok(stats);
     }
 }

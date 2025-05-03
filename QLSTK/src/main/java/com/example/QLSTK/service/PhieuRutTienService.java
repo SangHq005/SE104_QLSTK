@@ -10,12 +10,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 
 @Service
 public class PhieuRutTienService {
+
     @Autowired
     private PhieuRutTienRepository phieuRutTienRepository;
+
     @Autowired
     private MoSoTietKiemRepository moSoTietKiemRepository;
 
@@ -34,19 +37,18 @@ public class PhieuRutTienService {
         Integer kyHan = moSoTietKiem.getSoTietKiem().getKyHan();
         long daysSinceOpened = (new Date().getTime() - moSoTietKiem.getNgayMoSTK().getTime()) / (1000 * 60 * 60 * 24);
 
-        // Kiểm tra thời gian gửi tối thiểu
         Integer thoiGianGuiToiThieu = moSoTietKiem.getSoTietKiem().getThoiGianGuiToiThieu();
-        if (thoiGianGuiToiThieu == null) thoiGianGuiToiThieu = 15; // Mặc định 15 ngày
+        if (thoiGianGuiToiThieu == null) thoiGianGuiToiThieu = 15;
+
         if (daysSinceOpened < thoiGianGuiToiThieu) {
             throw new Exception("Chưa đủ thời gian gửi tối thiểu");
         }
 
-        // Kiểm tra rút tiền theo loại tiết kiệm
-        if (kyHan == 0) { // Không kỳ hạn
+        if (kyHan == 0) {
             if (amount > balance) {
                 throw new Exception("Số tiền rút vượt quá số dư");
             }
-        } else { // Có kỳ hạn
+        } else {
             if (daysSinceOpened < kyHan * 30) {
                 throw new Exception("Chưa đến kỳ hạn rút tiền");
             }
@@ -61,7 +63,6 @@ public class PhieuRutTienService {
         phieuRutTien.setNgayRut(new Date());
         phieuRutTienRepository.save(phieuRutTien);
 
-        // Đóng sổ nếu rút hết
         if (amount >= balance) {
             moSoTietKiem.setDaDong(true);
             moSoTietKiemRepository.save(moSoTietKiem);
@@ -79,11 +80,19 @@ public class PhieuRutTienService {
                 .reduce(0f, Float::sum);
         Float balance = deposits - withdrawals;
 
-        // Tính lãi
         Integer kyHan = moSoTietKiem.getSoTietKiem().getKyHan();
-        Float laiSuat = kyHan == 0 ? moSoTietKiem.getSoTietKiem().getLaiSuat() : 0.005f; // Lãi không kỳ hạn cho rút có kỳ hạn
+        Float laiSuat = moSoTietKiem.getSoTietKiem().getLaiSuat();
         long daysSinceOpened = (new Date().getTime() - moSoTietKiem.getNgayMoSTK().getTime()) / (1000 * 60 * 60 * 24);
+
+        if (kyHan > 0 && daysSinceOpened < kyHan * 30) {
+            laiSuat = 0.005f; // Use non-term interest rate if withdrawn before term
+        }
+
         Float interest = balance * laiSuat * (daysSinceOpened / 365f);
         return balance + interest;
+    }
+
+    public List<PhieuRutTien> getAllWithdrawals() {
+        return phieuRutTienRepository.findAll();
     }
 }

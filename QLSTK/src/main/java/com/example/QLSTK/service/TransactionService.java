@@ -1,8 +1,6 @@
 package com.example.QLSTK.service;
 
 import com.example.QLSTK.entity.MoSoTietKiem;
-import com.example.QLSTK.entity.PhieuGuiTien;
-import com.example.QLSTK.entity.PhieuRutTien;
 import com.example.QLSTK.repository.MoSoTietKiemRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
