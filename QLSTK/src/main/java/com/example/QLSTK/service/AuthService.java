@@ -38,7 +38,22 @@ public class AuthService {
     private JwtAuthenticationFilter jwtFilter;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
-    private final Map<String, String> passcodeStore = new HashMap<>(); // Temporary passcode storage
+    private final Map<String, PasscodeEntry> passcodeStore = new HashMap<>();
+    private static final long PASSCODE_EXPIRY_MS = 5 * 60 * 1000; // 5 phút
+
+    private static class PasscodeEntry {
+        String passcode;
+        long createdAt;
+
+        PasscodeEntry(String passcode) {
+            this.passcode = passcode;
+            this.createdAt = System.currentTimeMillis();
+        }
+
+        boolean isExpired() {
+            return System.currentTimeMillis() - createdAt > PASSCODE_EXPIRY_MS;
+        }
+    }
 
     @Transactional
     public LoginResponse signIn(LoginRequest request) throws Exception {
@@ -51,14 +66,12 @@ public class AuthService {
             throw new Exception("Mật khẩu không đúng");
         }
 
-        // Log login attempt
         DangNhap dangNhap = new DangNhap();
         dangNhap.setNguoiDung(nguoiDung);
         dangNhap.setMatKhau(nguoiDung.getMatKhau());
         dangNhap.setLoginTime(new Date());
         dangNhapRepository.save(dangNhap);
 
-        // Generate JWT token
         String token = jwtFilter.generateToken(nguoiDung.getEmail());
         LoginResponse response = new LoginResponse();
         response.setUser(userService.mapToUserResponse(nguoiDung));
@@ -82,7 +95,7 @@ public class AuthService {
         nguoiDung.setEmail(request.getEmail());
         nguoiDung.setSdt(request.getPhoneNumber());
         nguoiDung.setMatKhau(passwordEncoder.encode(request.getPassword()));
-        nguoiDung.setVaiTro(1); // Default to user role
+        nguoiDung.setVaiTro(1);
         nguoiDung.setTenND("");
         nguoiDung.setCccd("");
         nguoiDung.setDiaChi("");
@@ -105,20 +118,30 @@ public class AuthService {
         }
 
         String passcode = String.format("%06d", new Random().nextInt(999999));
-        passcodeStore.put(email, passcode);
+        passcodeStore.put(email, new PasscodeEntry(passcode));
+        System.out.println("Generated passcode for " + email + ": " + passcode);
 
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(email);
         message.setSubject("Password Reset Passcode");
-        message.setText("Your passcode is: " + passcode);
+        message.setText("Mã passcode của bạn là: " + passcode + "\nMã này có hiệu lực trong 5 phút.");
         mailSender.send(message);
     }
 
     public void verifyPasscode(String email, String passcode) throws Exception {
-        String storedPasscode = passcodeStore.get(email);
-        if (storedPasscode == null || !storedPasscode.equals(passcode)) {
-            throw new Exception("Invalid passcode");
+        System.out.println("Verifying passcode for " + email + ": " + passcode);
+        PasscodeEntry entry = passcodeStore.get(email);
+        if (entry == null) {
+            throw new Exception("Passcode không tồn tại. Vui lòng yêu cầu mã mới.");
         }
+        if (entry.isExpired()) {
+            passcodeStore.remove(email);
+            throw new Exception("Passcode đã hết hạn. Vui lòng yêu cầu mã mới.");
+        }
+        if (!entry.passcode.equals(passcode)) {
+            throw new Exception("Passcode không đúng.");
+        }
+        System.out.println("Passcode verified successfully for " + email);
     }
 
     @Transactional
